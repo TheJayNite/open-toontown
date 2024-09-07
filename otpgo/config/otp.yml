@@ -34,3 +34,30 @@ uberdogs:
 
     - class: TTSpeedchatRelay
       id: 4712
+
+roles:
+    - type: clientagent
+      bind: 0.0.0.0:6667
+      version: "sv1.0.47.38"
+      lua_file: "lua/ToontownClient.lua"
+      database: 4003
+      client:
+          relocate: true
+          add_interest: enabled
+          heartbeat_timeout: 60
+      channels:
+          min: 1000000000
+          max: 1009999999
+
+    - type: stateserver
+      control: 20100000
+      objects:
+          - class: DistributedDirectory
+            id: 4618
+
+          - class: CentralLogger
+            id: 4688
+
+    - type: eventlogger
+      bind: 127.0.0.1:4343
+      output: logs/events-%Y%m%d_%H%M%S.log
