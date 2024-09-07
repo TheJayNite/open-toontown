@@ -1,0 +1,36 @@
+daemon:
+    name: Open Toontown OTP Cluster
+
+general:
+    eventlogger: 127.0.0.1:4343
+    dc_files:
+        - ../config/otp.dc
+        - ../config/toon.dc
+
+messagedirector:
+    bind: 127.0.0.1:6666
+
+uberdogs:
+    - class: FriendManager
+      id: 4501
+
+    - class: DistributedDeliveryManager
+      id: 4683
+
+    - class: AvatarFriendsManager
+      id: 4686
+
+    - class: TTPlayerFriendsManager
+      id: 4687
+
+    - class: CentralLogger
+      id: 4688
+
+    - class: DistributedPartyManager
+      id: 4691
+
+    - class: TTCodeRedemptionMgr
+      id: 4695
+
+    - class: TTSpeedchatRelay
+      id: 4712
