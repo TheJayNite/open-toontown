@@ -1,5 +1,26 @@
 package.path = package.path .. ";lua/?.lua"
 
+function readAccountBridge()
+    local json = require("json")
+    local io = require("io")
+
+    -- TODO: Custom path.
+    f, err = io.open("databases/accounts.json", "r")
+    if err then
+        print("ToontownClient: Returning empty table for account bridge")
+        return {}
+    end
+
+    decoder = json.new_decoder(f)
+    result, err = decoder:decode()
+    f:close()
+    assert(not err, err)
+    print("ToontownClient: Account bridge successfully loaded.")
+    return result
+end
+
+ACCOUNT_BRIDGE = readAccountBridge()
+
 -- Load message types
 dofile("lua/MsgTypes.lua")
 
