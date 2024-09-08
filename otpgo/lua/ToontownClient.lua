@@ -2,6 +2,34 @@ package.path = package.path .. ";lua/?.lua"
 
 local date = require('date')
 
+function table.shallow_copy(t)
+    local t2 = {}
+    for k, v in pairs(t) do
+        t2[k] = v
+    end
+    return t2
+end
+
+-- Read vismap:
+function readVismap()
+    local json = require("json")
+    local io = require("io")
+
+    -- TODO: Custom path.
+    f, err = io.open("config/vismap.json", "r")
+    assert(not err, err)
+
+    decoder = json.new_decoder(f)
+    result, err = decoder:decode()
+    f:close()
+    assert(not err, err)
+    return result
+end
+
+VISMAP = readVismap()
+print("ToontownClient: Vismap successfully loaded.")
+
+-- Read account bridge:
 function readAccountBridge()
     local json = require("json")
     local io = require("io")
@@ -35,7 +63,7 @@ function saveAccountBridge()
     assert(not err, err)
 end
 
--- Load message types
+-- Load message types:
 dofile("lua/MsgTypes.lua")
 
 function receiveDatagram(client, dgi)
@@ -51,6 +79,10 @@ function receiveDatagram(client, dgi)
     -- We have reached the only message types unauthenticated clients can use.
     elseif not client:authenticated() then
         client:sendDisconnect(CLIENT_DISCONNECT_GENERIC, "First datagram is not CLIENT_LOGIN_TOONTOWN", true)
+    elseif msgType == CLIENT_ADD_INTEREST then
+        handleAddInterest(client, dgi)
+    elseif msgType == CLIENT_REMOVE_INTEREST then
+        client:handleRemoveInterest(dgi)
     else
         client:sendDisconnect(CLIENT_DISCONNECT_GENERIC, string.format("Unknown message type: %d", msgType), true)
     end
@@ -208,4 +240,43 @@ function loginAccount(client, account, accountId, playToken, openChat, isPaid, d
 
     -- Dispatch the response to the client.
     client:sendDatagram(resp)
+end
+
+function handleAddInterest(client, dgi)
+    local handle = dgi:readUint16()
+    local context = dgi:readUint32()
+    local parent = dgi:readUint32()
+    local zones = {}
+    while dgi:getRemainingSize() > 0 do
+        local zone = dgi:readUint32()
+        if zone == 1 then
+            -- We don't want quiet zone.
+            goto continue
+        end
+
+        table.insert(zones, zone)
+        ::continue::
+    end
+
+    -- Replace street zone with vismap if exists
+    if #zones == 1 then
+        if VISMAP[tostring(zones[1])] ~= nil then
+            zones = VISMAP[tostring(zones[1])]
+        elseif zones[1] >= 22000 and zones[1] < 61000 then
+            -- Handle Welcome Valley zones
+            local welcomeValleyZone = zones[1]
+            local hoodId = zones[1] - math.fmod(zones[1], 1000)
+            local offset = math.fmod(welcomeValleyZone, 2000)
+            -- Get original vismap
+            if VISMAP[tostring(offset + 2000)] ~= nil then
+                zones = table.shallow_copy(VISMAP[tostring(offset + 2000)])
+                for i, v in ipairs(zones) do
+                    local offset = math.fmod(zones[i], 2000)
+                    zones[i] = offset + hoodId
+                end
+            end
+        end
+    end
+
+    client:handleAddInterest(handle, context, parent, zones)
 end
