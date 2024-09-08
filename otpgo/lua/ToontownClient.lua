@@ -21,6 +21,18 @@ end
 
 ACCOUNT_BRIDGE = readAccountBridge()
 
+function saveAccountBridge()
+    local json = require("json")
+    local io = require("io")
+
+    -- TODO: Custom path.
+    f, err = io.open("databases/accounts.json", "w")
+    assert(not err, err)
+    encoder = json.new_encoder(f)
+    err = encoder:encode(ACCOUNT_BRIDGE)
+    assert(not err, err)
+end
+
 -- Load message types
 dofile("lua/MsgTypes.lua")
 
@@ -61,4 +73,59 @@ function handleLoginToontown(client, dgi)
         client:sendDisconnect(CLIENT_DISCONNECT_BAD_VERSION, string.format("Client DC hash mismatch: client=%d, server=%d", hash, DC_HASH), true)
         return
     end
+
+    -- TODO: Make these configurable.
+    local speedChatPlus = true
+    local openChat = true
+    local isPaid = true
+    local dislId = 1
+    local linkedToParent = false
+    accountType = "Administrator"
+
+    local accountId = ACCOUNT_BRIDGE[playToken]
+    if accountId ~= nil then
+        -- Query the account object
+        client:getDatabaseValues(accountId, "Account", {"ACCOUNT_AV_SET", "CREATED", "LAST_LOGIN"}, function (doId, success, fields)
+            if not success then
+                client:sendDisconnect(CLIENT_DISCONNECT_ACCOUNT_ERROR, "The Account object was unable to be queried.", true)
+                return
+            end
+
+            -- Update LAST_LOGIN
+            fields.LAST_LOGIN = os.date("%a %b %d %H:%M:%S %Y")
+            client:setDatabaseValues(accountId, "Account", {
+                LAST_LOGIN = fields.LAST_LOGIN,
+            })
+
+            loginAccount(client, fields, accountId, playToken, openChat, isPaid, dislId, linkedToParent, accountType, speedChatPlus)
+        end)
+    else
+        -- Create a new account object
+        local account = {
+            -- The rest of the values are defined in the dc file.
+            CREATED = os.date("%a %b %d %H:%M:%S %Y"),
+            LAST_LOGIN = os.date("%a %b %d %H:%M:%S %Y"),
+        }
+
+        client:createDatabaseObject("Account", account, DATABASE_OBJECT_TYPE_ACCOUNT, function (accountId)
+            if accountId == 0 then
+                client:sendDisconnect(CLIENT_DISCONNECT_ACCOUNT_ERROR, "The Account object was unable to be created.", false)
+                return
+            end
+
+            -- Store the account into the bridge
+            ACCOUNT_BRIDGE[playToken] = accountId
+            saveAccountBridge()
+
+            account.ACCOUNT_AV_SET = {0, 0, 0, 0, 0, 0}
+
+            client:writeServerEvent("account-created", "ToontownClient", string.format("%d", accountId))
+
+            loginAccount(client, account, accountId, playToken, openChat, isPaid, dislId, linkedToParent, accountType, speedChatPlus)
+        end)
+    end
+end
+
+function loginAccount(client, account, accountId, playToken, openChat, isPaid, dislId, linkedToParent, accountType, speedChatPlus)
+    -- TODO
 end
