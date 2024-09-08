@@ -5,7 +5,7 @@ Start the Toontown UberDog (Uber Distributed Object Globals server).
 from panda3d.core import loadPrcFile
 
 # TODO: use argparse for this?
-configs = ('etc/Configrc.prc',)
+configs = ('config/Configrc.prc',)
 for prc in configs:
     loadPrcFile(prc)
 
