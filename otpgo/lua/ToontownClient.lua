@@ -1,5 +1,7 @@
 package.path = package.path .. ";lua/?.lua"
 
+local date = require('date')
+
 function readAccountBridge()
     local json = require("json")
     local io = require("io")
@@ -80,7 +82,6 @@ function handleLoginToontown(client, dgi)
     local isPaid = true
     local dislId = 1
     local linkedToParent = false
-    accountType = "Administrator"
 
     local accountId = ACCOUNT_BRIDGE[playToken]
     if accountId ~= nil then
@@ -97,7 +98,7 @@ function handleLoginToontown(client, dgi)
                 LAST_LOGIN = fields.LAST_LOGIN,
             })
 
-            loginAccount(client, fields, accountId, playToken, openChat, isPaid, dislId, linkedToParent, accountType, speedChatPlus)
+            loginAccount(client, fields, accountId, playToken, openChat, isPaid, dislId, linkedToParent, speedChatPlus)
         end)
     else
         -- Create a new account object
@@ -121,11 +122,81 @@ function handleLoginToontown(client, dgi)
 
             client:writeServerEvent("account-created", "ToontownClient", string.format("%d", accountId))
 
-            loginAccount(client, account, accountId, playToken, openChat, isPaid, dislId, linkedToParent, accountType, speedChatPlus)
+            loginAccount(client, account, accountId, playToken, openChat, isPaid, dislId, linkedToParent, speedChatPlus)
         end)
     end
 end
 
-function loginAccount(client, account, accountId, playToken, openChat, isPaid, dislId, linkedToParent, accountType, speedChatPlus)
-    -- TODO
+function loginAccount(client, account, accountId, playToken, openChat, isPaid, dislId, linkedToParent, speedChatPlus)
+    -- Eject other client if already logged in.
+    local ejectDg = datagram:new()
+    client:addServerHeaderWithAccountId(ejectDg, accountId, CLIENTAGENT_EJECT)
+    ejectDg:addUint16(100)
+    ejectDg:addString("You have been disconnected because someone else just logged in using your account on another computer.")
+    client:routeDatagram(ejectDg)
+
+    -- Subscribe to our puppet channel.
+    client:subscribePuppetChannel(accountId, 3)
+
+    -- Set our channel containing our account id
+    client:setChannel(accountId, 0)
+
+    client:authenticated(true)
+
+    -- Store the account id and avatar list into our client's user table:
+    local userTable = client:userTable()
+    userTable.accountId = accountId
+    userTable.avatars = account.ACCOUNT_AV_SET
+    userTable.playToken = playToken
+    userTable.isPaid = isPaid
+    userTable.speedChatPlus = speedChatPlus
+    userTable.openChat = openChat
+    client:userTable(userTable)
+
+    -- Log the event
+    client:writeServerEvent("account-login", "ToontownClient", string.format("%d", accountId))
+
+    -- Prepare the login response.
+    local resp = datagram:new()
+    resp:addUint16(CLIENT_LOGIN_TOONTOWN_RESP)
+    resp:addUint8(0) -- Return code
+    resp:addString("All Ok")
+    resp:addUint32(dislId) -- accountNumber
+    resp:addString(playToken) -- accountName
+    resp:addUint8(1) -- accountNameApproved
+
+    if openChat then
+        resp:addString('YES') -- openChatEnabled, does not seem to be used
+    else
+        resp:addString('NO') -- openChatEnabled, does not seem to be used
+    end
+
+    resp:addString('YES') -- createFriendsWithChat
+    resp:addString('YES') -- chatCodeCreationRule
+    resp:addUint32(os.time()) -- sec
+    resp:addUint32(os.clock()) -- usec
+
+    if isPaid then
+        resp:addString("FULL") -- access
+    else
+        resp:addString("VELVET") -- access
+    end
+
+    if speedChatPlus then
+        resp:addString("YES") -- WhiteListResponse
+    else
+        resp:addString("NO") -- WhiteListResponse
+    end
+
+    resp:addString(os.date("%Y-%m-%d %H:%M:%S")) -- lastLoggedInStr
+    resp:addInt32(math.floor(date.diff(account.LAST_LOGIN, account.CREATED):spandays())) -- accountDays
+    if linkedToParent then
+        resp:addString("WITH_PARENT_ACCOUNT") -- toonAccountType
+    else
+        resp:addString("NO_PARENT_ACCOUNT") -- toonAccountType
+    end
+    resp:addString(playToken) -- userName
+
+    -- Dispatch the response to the client.
+    client:sendDatagram(resp)
 end
