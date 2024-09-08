@@ -48,8 +48,15 @@ function receiveDatagram(client, dgi)
         client:handleDisconnect()
     elseif msgType == CLIENT_LOGIN_TOONTOWN then
         handleLoginToontown(client, dgi)
+    -- We have reached the only message types unauthenticated clients can use.
+    elseif not client:authenticated() then
+        client:sendDisconnect(CLIENT_DISCONNECT_GENERIC, "First datagram is not CLIENT_LOGIN_TOONTOWN", true)
     else
         client:sendDisconnect(CLIENT_DISCONNECT_GENERIC, string.format("Unknown message type: %d", msgType), true)
+    end
+
+    if dgi:getRemainingSize() ~= 0 then
+        client:sendDisconnect(CLIENT_DISCONNECT_OVERSIZED_DATAGRAM, string.format("Datagram contains excess data.\n%s", tostring(dgi)), true)
     end
 end
 
@@ -190,11 +197,13 @@ function loginAccount(client, account, accountId, playToken, openChat, isPaid, d
 
     resp:addString(os.date("%Y-%m-%d %H:%M:%S")) -- lastLoggedInStr
     resp:addInt32(math.floor(date.diff(account.LAST_LOGIN, account.CREATED):spandays())) -- accountDays
+
     if linkedToParent then
         resp:addString("WITH_PARENT_ACCOUNT") -- toonAccountType
     else
         resp:addString("NO_PARENT_ACCOUNT") -- toonAccountType
     end
+
     resp:addString(playToken) -- userName
 
     -- Dispatch the response to the client.
