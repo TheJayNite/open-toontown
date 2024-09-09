@@ -66,6 +66,9 @@ end
 -- Load message types:
 dofile("lua/MsgTypes.lua")
 
+-- Load Toon DNA helpers:
+dofile("lua/ToonDNA.lua")
+
 function receiveDatagram(client, dgi)
     -- Client received datagrams
     msgType = dgi:readUint16()
@@ -87,6 +90,8 @@ function receiveDatagram(client, dgi)
         handleGetAvatars(client, false)
     elseif msgType == CLIENT_OBJECT_UPDATE_FIELD then
         client:handleUpdateField(dgi)
+    elseif msgType == CLIENT_CREATE_AVATAR then
+        handleCreateAvatar(client, dgi)
     else
         client:sendDisconnect(CLIENT_DISCONNECT_GENERIC, string.format("Unknown message type: %d", msgType), true)
     end
@@ -368,4 +373,67 @@ function handleGetAvatars(client, deletion)
             gotAllAvatars()
         end
     end
+end
+
+function handleCreateAvatar(client, reader)
+    local userTable = client:userTable()
+    local accountId = userTable.accountId
+
+    local contextId = reader:readUint16()
+    local dnaString = reader:readString()
+    local avPosition = reader:readUint8()
+
+    if avPosition > 6 then
+        -- Client sent an invalid av position
+        client:sendDisconnect(CLIENT_DISCONNECT_GENERIC, "Invalid Avatar index chosen.", true)
+        return
+    end
+
+    if userTable.avatars[avPosition + 1] ~= 0 then
+        -- This index isn't available.
+        client:sendDisconnect(CLIENT_DISCONNECT_ACCOUNT_ERROR, "The Avatar index chosen is not available.", true)
+        return
+    end
+
+    local result, dna = isValidNetString(dnaString)
+
+    if not result then
+        client:sendDisconnect(CLIENT_DISCONNECT_ACCOUNT_ERROR, "Invalid Avatar DNA sent.", true)
+        return
+    end
+
+    -- Create a new DistributedToon object
+    local avatar = {
+        -- The rest of the values are defined in the dc file.
+        setName = {NumToColor[dna[1]] .. " " .. AnimalToSpecies[dna[2]]},
+        setDISLid = {accountId},
+        setDNAString = {dnaString},
+        setPosIndex = {avPosition},
+        setAccountName = {userTable.playToken},
+    }
+
+    client:createDatabaseObject("DistributedToon", avatar, DATABASE_OBJECT_TYPE_TOON, function (avatarId)
+        if avatarId == 0 then
+            client:sendDisconnect(CLIENT_DISCONNECT_ACCOUNT_ERROR, "The DistributedToon object was unable to be created.", false)
+            return
+        end
+
+        userTable.avatars[avPosition + 1] = avatarId
+
+        client:setDatabaseValues(accountId, "Account", {
+            ACCOUNT_AV_SET = userTable.avatars,
+        })
+
+        client:writeServerEvent("avatar-created", "ToontownClient", string.format("%d|%d", accountId, avatarId))
+
+        -- Prepare the create avatar response.
+        local resp = datagram:new()
+        resp:addUint16(CLIENT_CREATE_AVATAR_RESP)
+        resp:addUint16(contextId)
+        resp:addUint8(0) -- returnCode
+        resp:addUint32(avatarId)
+
+        -- Dispatch the response to the client.
+        client:sendDatagram(resp)
+    end)
 end
