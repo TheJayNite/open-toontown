@@ -83,6 +83,10 @@ function receiveDatagram(client, dgi)
         handleAddInterest(client, dgi)
     elseif msgType == CLIENT_REMOVE_INTEREST then
         client:handleRemoveInterest(dgi)
+    elseif msgType == CLIENT_GET_AVATARS then
+        handleGetAvatars(client, false)
+    elseif msgType == CLIENT_OBJECT_UPDATE_FIELD then
+        client:handleUpdateField(dgi)
     else
         client:sendDisconnect(CLIENT_DISCONNECT_GENERIC, string.format("Unknown message type: %d", msgType), true)
     end
@@ -279,4 +283,89 @@ function handleAddInterest(client, dgi)
     end
 
     client:handleAddInterest(handle, context, parent, zones)
+end
+
+function handleGetAvatars(client, deletion)
+    local userTable = client:userTable()
+    local avatarList = userTable.avatars
+
+    local retreivedFields = {}
+    local expectingAvatars = {}
+    local gotAvatars = {}
+
+    local function gotAllAvatars()
+        dg = datagram:new()
+        local msgType = CLIENT_GET_AVATARS_RESP
+        if deletion then
+            msgType = CLIENT_DELETE_AVATAR_RESP
+        end
+
+        dg:addUint16(msgType)
+        dg:addUint8(0) -- returnCode
+        dg:addUint16(#gotAvatars) -- avatarTotal
+        for index, fields in pairs(retreivedFields) do
+            local wishNameState = fields.WishNameState[1]
+            local wishName = fields.WishName[1]
+
+            local aName = 0
+
+            local wantName = ""
+            local approvedName = ""
+            local rejectedName = ""
+
+            if wishNameState == "OPEN" then
+                aName = 1
+            end
+
+            if wishNameState == "PENDING" then
+                wantName = wishName
+            end
+
+            if wishNameState == "APPROVED" then
+                approvedName = wishName
+            end
+
+            if wishNameState == "REJECTED" then
+                rejectedName = wishName
+            end
+
+            dg:addUint32(fields.avatarId)
+            dg:addString(fields.setName[1]) -- name
+            dg:addString(wantName) -- wantName
+            dg:addString(approvedName) -- approvedName
+            dg:addString(rejectedName) -- rejectedName
+
+            dg:addString(fields.setDNAString[1]) -- avDNA
+            dg:addUint8(index - 1) -- avPosition
+            dg:addUint8(aName) -- aName
+        end
+
+        client:sendDatagram(dg)
+    end
+
+    for index, avatarId in ipairs(avatarList) do
+        if avatarId ~= 0 then
+            -- Query the avatar object
+            client:getDatabaseValues(avatarId, "DistributedToon", {"setName", "setDNAString", "WishNameState", "WishName"}, function (doId, success, fields)
+                if not success then
+                    client:sendDisconnect(CLIENT_DISCONNECT_ACCOUNT_ERROR, string.format("The DistributedToon object %d was unable to be queried.", avatarId), false)
+                    return
+                end
+
+                fields.avatarId = avatarId
+                retreivedFields[index] = fields
+                table.insert(gotAvatars, {})
+                if #gotAvatars == #expectingAvatars then
+                    gotAllAvatars()
+                end
+            end)
+
+            table.insert(expectingAvatars, avatarId)
+        end
+
+        if index == 6 and #expectingAvatars == 0 then
+            -- We got nothing to do.
+            gotAllAvatars()
+        end
+    end
 end
