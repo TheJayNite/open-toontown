@@ -230,10 +230,10 @@ dclass DistributedPlayer : DistributedAvatar {
   setSCCustom(uint16) broadcast ownsend airecv;
   setFriendsList(uint32uint8array = {}) ownrecv required db airecv;
   setDISLname(string) broadcast ownrecv ram;
-  setDISLid(uint32) broadcast ownrecv ram db airecv required;
+  setDISLid(uint32=0) broadcast ownrecv ram db airecv required;
   OwningAccount(uint32);
-  WishName(string) db ram;
-  WishNameState(string) db ram;
+  WishName(string = "") db ram;
+  WishNameState(string = "") db ram;
   setPreviousAccess(uint8 access = 0) required db airecv;
   setAccess(uint8 access = 2) broadcast ownrecv required ram airecv;
   setAsGM(bool isGM = 0) required ram broadcast ownrecv airecv;
