@@ -708,7 +708,7 @@ class AIRepository(ConnectionRepository):
         # Look up the dclass
         dclass = self.dclassesByNumber[classId]
         # Is it in our dictionary?
-        if self.doId2do.has_key(doId):
+        if doId in self.doId2do:
             self.notify.warning("Object Entered " + str(doId) +
                                 " re-entered without exiting")
         # Create a new distributed object
@@ -720,7 +720,7 @@ class AIRepository(ConnectionRepository):
         # sure why or how this happens, but it does come up from time to
         # time in production
         # Asad Todo take out this security check for now don't publish to toontown!!!
-##         if self.doId2do.has_key(doId):
+##         if doId in self.doId2do:
 ##             self.writeServerEvent('suspicious', doId, 'Avatar re-entered without exiting')
 ##             # Note: until we figure out what is causing this bug, it will be an error
 ##             # This is listed as bug 50608 in the production remarks db
@@ -736,7 +736,7 @@ class AIRepository(ConnectionRepository):
         # Look up the dclass
         dclass = self.dclassesByNumber[classId]
         # Is it in our dictionary?
-        if self.doId2do.has_key(doId):
+        if doId in self.doId2do:
             self.notify.warning("Object Entered " + str(doId) +
                                 " re-entered without exiting")
         # Create a new distributed object
@@ -748,7 +748,7 @@ class AIRepository(ConnectionRepository):
         # sure why or how this happens, but it does come up from time to
         # time in production
         # Asad Todo take out this security check for now don't publish to toontown!!!
-##         if self.doId2do.has_key(doId):
+##         if doId in self.doId2do:
 ##             self.writeServerEvent('suspicious', doId, 'Avatar re-entered without exiting')
 ##             # Note: until we figure out what is causing this bug, it will be an error
 ##             # This is listed as bug 50608 in the production remarks db
@@ -817,7 +817,7 @@ class AIRepository(ConnectionRepository):
         pass
 
     def _generateFromDatagram(self, parentId, zoneId, dclass, doId, di, addToTables=True):
-        if (self.doId2do.has_key(doId)):
+        if (doId in self.doId2do):
             # added to prevent objects already generated from being generated again (was
             # happening with some traded inventory objects, quests specfically)
             return self.doId2do[doId]
@@ -1225,7 +1225,7 @@ class AIRepository(ConnectionRepository):
                 __builtins__["debug_dictionary"] = self.debug_dictionary
 
             for id in   self.debug_dictionary.keys():
-                if not self.doId2do.has_key(id):
+                if id not in self.doId2do:
                     print("--------------------- Not In DOID table")
                     print(id)
                     #traceback.print_list(self.debug_dictionary[id])
@@ -1408,14 +1408,14 @@ class AIRepository(ConnectionRepository):
         #                 (classId, context))
         if ownerChannel == 0 and ownerAvId is not None:
             ownerChannel = (1<<32) + ownerAvId
-        if self.dclassesByNumber.has_key(classId):
+        if classId in self.dclassesByNumber:
             dclass = self.dclassesByNumber[classId]
         else:
-            if self.dclassesByName.has_key(classId):
+            if classId in self.dclassesByName:
                 dclass = self.dclassesByName[classId]
-            elif self.dclassesByName.has_key(classId+self.dcSuffix):
+            elif classId+self.dcSuffix in self.dclassesByName:
                 dclass = self.dclassesByName[classId+self.dcSuffix]
-            elif self.dclassesByName.has_key(classId+'AI'):
+            elif classId+'AI' in self.dclassesByName:
                 dclass = self.dclassesByName[classId+'AI']
             else:
                 self.notify.warning("dclass not found %s"%(classId,))
@@ -1499,7 +1499,7 @@ class AIRepository(ConnectionRepository):
     def handleDatagram(self, di):
         if self.notify.getDebug():
             print("AIRepository received datagram:")
-            di.getDatagram().dumpHex(ostream)
+            di.getDatagram().dumpHex(Notify.out())
 
         channel=self.getMsgChannel()
         if channel in self.netMessenger.channels:
@@ -1911,3 +1911,6 @@ class AIRepository(ConnectionRepository):
             print('########## startReaderPollTask New ')
             self.stopReaderPollTask()
             self.accept(CConnectionRepository.getOverflowEventName(),self.handleReaderOverflow)
+
+    def getTrackClsends(self):
+        return False
