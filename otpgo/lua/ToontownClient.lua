@@ -1,6 +1,17 @@
 package.path = package.path .. ";lua/?.lua"
 
+local inspect = require('inspect')
 local date = require('date')
+
+-- From https://stackoverflow.com/a/22831842
+function string.starts(str, start)
+    return string.sub(str, 1, string.len(start)) == start
+end
+
+-- From https://stackoverflow.com/a/2421746
+function string.upperFirst(str)
+    return string.gsub(str, "^%l", string.upper)
+end
 
 function table.shallow_copy(t)
     local t2 = {}
@@ -63,6 +74,41 @@ function saveAccountBridge()
     assert(not err, err)
 end
 
+NAME_PATTERNS = {}
+
+-- Read name patterns:
+function readNamePatterns()
+    local io = require("io")
+
+    local f, err = io.open("../resources/phase_3/etc/NameMasterEnglish.txt")
+    assert(not err, err)
+
+    for line in f:lines() do
+        if string.starts(line, "#") then
+            goto continue
+        end
+
+        local parsed = {}
+
+        -- Match any character except "*"
+        for w in string.gmatch(line, "([^*]+)") do
+            table.insert(parsed, w)
+        end
+
+        if #parsed ~= 3 then
+            print(string.format("readNamePatterns: Invalid entry: %s", inspect(parsed)))
+            goto continue
+        end
+
+        table.insert(NAME_PATTERNS, parsed[3])
+        ::continue::
+    end
+
+    print("ToontownClient: Name patterns successfully loaded.")
+end
+
+readNamePatterns()
+
 -- Load message types:
 dofile("lua/MsgTypes.lua")
 
@@ -92,6 +138,8 @@ function receiveDatagram(client, dgi)
         client:handleUpdateField(dgi)
     elseif msgType == CLIENT_CREATE_AVATAR then
         handleCreateAvatar(client, dgi)
+    elseif msgType == CLIENT_SET_NAME_PATTERN then
+        handleSetNamePattern(client, dgi)
     else
         client:sendDisconnect(CLIENT_DISCONNECT_GENERIC, string.format("Unknown message type: %d", msgType), true)
     end
@@ -410,6 +458,7 @@ function handleCreateAvatar(client, reader)
         setDNAString = {dnaString},
         setPosIndex = {avPosition},
         setAccountName = {userTable.playToken},
+        WishNameState = {"OPEN"},
     }
 
     client:createDatabaseObject("DistributedToon", avatar, DATABASE_OBJECT_TYPE_TOON, function (avatarId)
@@ -436,4 +485,75 @@ function handleCreateAvatar(client, reader)
         -- Dispatch the response to the client.
         client:sendDatagram(resp)
     end)
+end
+
+function handleSetNamePattern(client, dgi)
+    local avId = dgi:readUint32()
+
+    client:getDatabaseValues(avId, "DistributedToon", {"WishNameState"}, function (doId, success, fields)
+        if not success then
+            client:sendDisconnect(CLIENT_DISCONNECT_ACCOUNT_ERROR, string.format("The DistributedToon object %d was unable to be queried.", avId), false)
+            return
+        end
+
+        if fields.WishNameState[1] ~= "OPEN" then
+            -- Only one name allowed!
+            client:sendDisconnect(CLIENT_DISCONNECT_ACCOUNT_ERROR, string.format("The DistributedToon object %d is unable to be named.", avId), true)
+            return
+        end
+    end)
+
+    local p1 = dgi:readInt16()
+    local f1 = dgi:readInt16()
+    local p2 = dgi:readInt16()
+    local f2 = dgi:readInt16()
+    local p3 = dgi:readInt16()
+    local f3 = dgi:readInt16()
+    local p4 = dgi:readInt16()
+    local f4 = dgi:readInt16()
+
+    -- Construct a pattern.
+    local pattern = {{p1, f1}, {p2, f2},
+                     {p3, f3}, {p4, f4}}
+
+    local parts = {}
+    for _, pair in ipairs(pattern) do
+        local p, f = pair[1], pair[2]
+        local part = NAME_PATTERNS[p + 1]
+        if part == nil then
+            part = ""
+        end
+
+        if f then
+            string.upperFirst(part)
+        else
+            string.lower(part)
+        end
+
+        table.insert(parts, part)
+    end
+
+    -- Merge 3&4 (the last name) as there should be no space.
+    parts[3] = parts[3] .. table.remove(parts, 4)
+
+    for i = #parts, 1, -1 do
+        if parts[i] == "" then
+            table.remove(parts, i)
+        end
+    end
+
+    local name = table.concat(parts, " ")
+
+    client:setDatabaseValues(avId, "DistributedToon", {
+        WishNameState = {"LOCKED"},
+        WishName = {""},
+        setName = {name}
+    })
+
+    resp = datagram:new()
+    resp:addUint16(CLIENT_SET_NAME_PATTERN_ANSWER)
+    resp:addUint32(avId)
+    resp:addUint8(0)
+
+    client:sendDatagram(resp)
 end
