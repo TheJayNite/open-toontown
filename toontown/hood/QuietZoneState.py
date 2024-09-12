@@ -139,7 +139,9 @@ class QuietZoneState(StateData.StateData):
         return
 
     def handleWaitForQuietZoneResponse(self, msgType, di):
-        self.notify.debug('handleWaitForQuietZoneResponse(' + 'msgType=' + str(msgType) + ', di=' + str(di) + ')')
+        self.notify.debug('handleWaitForQuietZoneResponse(' + 'msgType=' + str(msgType) + ')')
+        if self.notify.getDebug():
+            di.getDatagram().dumpHex(Notify.out())
         if msgType == CLIENT_CREATE_OBJECT_REQUIRED:
             base.cr.handleQuietZoneGenerateWithRequired(di)
         elif msgType == CLIENT_CREATE_OBJECT_REQUIRED_OTHER:
@@ -152,7 +154,9 @@ class QuietZoneState(StateData.StateData):
             base.cr.handlePlayGame(msgType, di)
 
     def handleWaitForZoneRedirect(self, msgType, di):
-        self.notify.debug('handleWaitForZoneRedirect(' + 'msgType=' + str(msgType) + ', di=' + str(di) + ')')
+        self.notify.debug('handleWaitForZoneRedirect(' + 'msgType=' + str(msgType) + ')')
+        if self.notify.getDebug():
+            di.getDatagram().dumpHex(Notify.out())
         if msgType == CLIENT_CREATE_OBJECT_REQUIRED:
             base.cr.handleQuietZoneGenerateWithRequired(di)
         elif msgType == CLIENT_CREATE_OBJECT_REQUIRED_OTHER:
