@@ -204,7 +204,7 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
         self.hostedParties = []
         self.partiesInvitedTo = []
         self.partyReplyInfoBases = []
-        self.treasureCollection = []
+        self.treasureCollection = {}
         return
 
     def generate(self):
