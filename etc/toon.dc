@@ -439,6 +439,7 @@ dclass DistributedAnimatedProp : DistributedObject {
 };
 
 typedef int16 pair16[2];
+typedef uint32 upair32[2];
 
 dclass DistributedToon : DistributedPlayer {
   setDNAString(blob) required broadcast ownrecv db;
@@ -619,6 +620,7 @@ dclass DistributedToon : DistributedPlayer {
   setDISLname(string) ram;
   setDISLid(uint32) ram db airecv;
   toggleSleep() ownrecv;
+  setTreasureCollection(upair32 [] = []) required ownrecv db;
 };
 
 dclass DistributedCCharBase : DistributedObject {

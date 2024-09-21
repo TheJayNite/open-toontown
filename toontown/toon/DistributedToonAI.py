@@ -204,6 +204,7 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
         self.hostedParties = []
         self.partiesInvitedTo = []
         self.partyReplyInfoBases = []
+        self.treasureCollection = []
         return
 
     def generate(self):
@@ -4135,6 +4136,45 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
 
     def d_toggleSleep(self):
         self.sendUpdate('toggleSleep', [])
+
+    def b_setTreasureCollection(self, treasureCollection):
+        self.d_setTreasureCollection(treasureCollection)
+        self.setTreasureCollection(treasureCollection)
+
+    def d_setTreasureCollection(self, treasureCollection):
+        self.sendUpdate('setTreasureCollection', [treasureCollection])
+
+    def setTreasureCollection(self, treasureCollection):
+        self.treasureCollection = treasureCollection
+
+    def getTreasureCollection(self):
+        return self.treasureCollection
+
+    def addToTreasureCollection(self, zoneId, amount):
+        if not ZoneUtil.isPlayground(zoneId) or ZoneUtil.isWelcomeValley(zoneId):
+            return
+        existing_zone = False
+        give_hp_boost = False
+        # If this toon has already collected treasures from this zone, add the new amount to the existing entry.
+        for i in range(len(self.treasureCollection)):
+            if self.treasureCollection[i][0] == zoneId:
+                self.treasureCollection[i][1] += amount
+                if self.treasureCollection[i][1] >= 10 and self.treasureCollection[i][1] - amount < 10:
+                    give_hp_boost = True
+                existing_zone = True
+
+        # If no treasure has been collected from this zone yet, add it as a new entry.
+        if not existing_zone:
+            self.treasureCollection.append([zoneId, amount])
+            if amount >= 10:
+                give_hp_boost = True
+        self.d_setTreasureCollection(self.treasureCollection)
+
+        # If this toon collected the 10th treasure in this zone, give a laff boost.
+        if give_hp_boost:
+            newMaxHp = self.getMaxHp() + 1
+            self.b_setMaxHp(newMaxHp)
+            self.toonUp(newMaxHp)
 
     @staticmethod
     def staticGetLogicalZoneChangeAllEvent():

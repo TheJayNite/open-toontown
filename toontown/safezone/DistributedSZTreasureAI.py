@@ -8,7 +8,7 @@ class DistributedSZTreasureAI(DistributedTreasureAI.DistributedTreasureAI):
         self.healAmount = treasurePlanner.healAmount
 
     def validAvatar(self, av):
-        return av.hp >= -1 and av.hp < av.maxHp
+        return av.hp >= -1
 
     def d_setGrab(self, avId):
         DistributedTreasureAI.DistributedTreasureAI.d_setGrab(self, avId)
@@ -21,3 +21,4 @@ class DistributedSZTreasureAI(DistributedTreasureAI.DistributedTreasureAI):
                     av.toonUp(self.healAmount * 2)
                 else:
                     av.toonUp(self.healAmount)
+                av.addToTreasureCollection(self.treasurePlanner.zoneId, 1)

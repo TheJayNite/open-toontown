@@ -59,6 +59,7 @@ from toontown.toontowngui import NewsPageButtonManager
 if WantNewsPage:
     from toontown.shtiker import NewsPage
 AdjustmentForNewsButton = -0.275
+from toontown.toontowngui.TreasureCollectionUI import TreasureCollectionUI
 ClaraBaseXPos = 1.45
 if (__debug__):
     import pdb
@@ -169,6 +170,7 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             self.oldPos = None
             self.questMap = None
             self.lerpFurnitureButton = None
+            self.treasureCollectionUI = None
 
     def wantLegacyLifter(self):
         return True
@@ -250,6 +252,8 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
             self.purchaseButton.destroy()
             del self.purchaseButton
         self.newsButtonMgr.request('Off')
+        self.treasureCollectionUI.unload()
+        del self.treasureCollectionUI
         base.whiteList.unload()
         self.book.unload()
         del self.optionsPage
@@ -320,6 +324,8 @@ class LocalToon(DistributedToon.DistributedToon, LocalAvatar.LocalAvatar):
         return
 
     def initInterface(self):
+        self.treasureCollectionUI = TreasureCollectionUI()
+        self.treasureCollectionUI.load()
         self.newsButtonMgr = NewsPageButtonManager.NewsPageButtonManager()
         self.newsButtonMgr.request('Hidden')
         self.book = ShtikerBook.ShtikerBook('bookDone')

@@ -186,6 +186,7 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         self.gmNameTagColor = 'whiteGM'
         self.gmNameTagString = ''
         self.transitioning = False
+        self.treasureCollection = []
         return
 
     def disable(self):
@@ -2592,3 +2593,14 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
 
     def toggleSleep(self):
         base.localAvatar.noSleep = not base.localAvatar.noSleep
+
+    def setTreasureCollection(self, treasureCollection):
+        self.treasureCollection = treasureCollection
+        if self.isLocal():
+            messenger.send('treasureCollectionChanged')
+
+    def getTreasuresCollectedInZone(self, zoneId):
+        for i in range(len(self.treasureCollection)):
+            if self.treasureCollection[i][0] == zoneId:
+                return self.treasureCollection[i][1]
+        return 0
