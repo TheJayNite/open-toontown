@@ -4143,15 +4143,14 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
 
     def d_setTreasureCollection(self, treasureCollection):
         # Convert to list format if dictionary.
-        if type(treasureCollection) is dict:
-            treasureCollection = [[key, treasureCollection[key]] for key in treasureCollection.keys()]
-
+        if isinstance(treasureCollection, dict):
+            treasureCollection = [[item[0], item[1]] for item in treasureCollection.items()]
         self.sendUpdate('setTreasureCollection', [treasureCollection])
 
     def setTreasureCollection(self, treasureCollection):
         # Convert to dictionary format if list.
-        if type(treasureCollection) is list:
-            treasureCollection = {treasureCollection[i][0]:treasureCollection[i][1] for i in range(len(treasureCollection))}
+        if isinstance(treasureCollection, list):
+            treasureCollection = {pair[1][0]:pair[1][1] for pair in enumerate(treasureCollection)}
         self.treasureCollection = treasureCollection
 
     def getTreasureCollection(self):

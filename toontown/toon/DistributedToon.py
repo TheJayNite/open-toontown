@@ -2595,7 +2595,7 @@ class DistributedToon(DistributedPlayer.DistributedPlayer, Toon.Toon, Distribute
         base.localAvatar.noSleep = not base.localAvatar.noSleep
 
     def setTreasureCollection(self, treasureCollection):
-        self.treasureCollection = {treasureCollection[i][0]:treasureCollection[i][1] for i in range(len(treasureCollection))}
+        self.treasureCollection = {pair[1][0]:pair[1][1] for pair in enumerate(treasureCollection)}
         if self.isLocal():
             messenger.send('treasureCollectionChanged')
 
