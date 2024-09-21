@@ -4164,7 +4164,7 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
 
         # If no treasure has been collected from this zone yet, add it as a new entry.
         if zoneId not in self.treasureCollection.keys():
-            self.treasureCollection[zoneId] = amount
+            self.treasureCollection[zoneId] = 0
 
         # If this toon collected last treasure they need, give them a laff boost.
         self.treasureCollection[zoneId] += amount
