@@ -4142,9 +4142,16 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
         self.setTreasureCollection(treasureCollection)
 
     def d_setTreasureCollection(self, treasureCollection):
+        # Convert to list format if dictionary.
+        if type(treasureCollection) is dict:
+            treasureCollection = [[key, treasureCollection[key]] for key in treasureCollection.keys()]
+
         self.sendUpdate('setTreasureCollection', [treasureCollection])
 
     def setTreasureCollection(self, treasureCollection):
+        # Convert to dictionary format if list.
+        if type(treasureCollection) is list:
+            treasureCollection = {treasureCollection[i][0]:treasureCollection[i][1] for i in range(len(treasureCollection))}
         self.treasureCollection = treasureCollection
 
     def getTreasureCollection(self):
@@ -4153,28 +4160,21 @@ class DistributedToonAI(DistributedPlayerAI.DistributedPlayerAI, DistributedSmoo
     def addToTreasureCollection(self, zoneId, amount):
         if not ZoneUtil.isPlayground(zoneId) or ZoneUtil.isWelcomeValley(zoneId):
             return
-        existing_zone = False
-        give_hp_boost = False
-        # If this toon has already collected treasures from this zone, add the new amount to the existing entry.
-        for i in range(len(self.treasureCollection)):
-            if self.treasureCollection[i][0] == zoneId:
-                self.treasureCollection[i][1] += amount
-                if self.treasureCollection[i][1] >= 10 and self.treasureCollection[i][1] - amount < 10:
-                    give_hp_boost = True
-                existing_zone = True
+        treasuresForBoost = 10
 
         # If no treasure has been collected from this zone yet, add it as a new entry.
-        if not existing_zone:
-            self.treasureCollection.append([zoneId, amount])
-            if amount >= 10:
-                give_hp_boost = True
-        self.d_setTreasureCollection(self.treasureCollection)
+        if zoneId not in self.treasureCollection.keys():
+            self.treasureCollection[zoneId] = amount
 
-        # If this toon collected the 10th treasure in this zone, give a laff boost.
-        if give_hp_boost:
+        # If this toon collected last treasure they need, give them a laff boost.
+        self.treasureCollection[zoneId] += amount
+        if self.treasureCollection[zoneId] >= treasuresForBoost and self.treasureCollection[zoneId] - amount < treasuresForBoost:
             newMaxHp = self.getMaxHp() + 1
             self.b_setMaxHp(newMaxHp)
             self.toonUp(newMaxHp)
+
+        # Send updated collection.
+        self.d_setTreasureCollection(self.treasureCollection)
 
     @staticmethod
     def staticGetLogicalZoneChangeAllEvent():
